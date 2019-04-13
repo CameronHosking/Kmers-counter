@@ -8,7 +8,7 @@
 
 #include "readArgs.h"
 
-std::string get_file_contents(const std::string &filename)
+std::string get_file_contents(const std::string &filename, bool verbose = false)
 {
 	std::ifstream in(filename, std::ios::in | std::ios::binary);
 	if (in)
@@ -16,6 +16,10 @@ std::string get_file_contents(const std::string &filename)
 		std::string contents;
 		in.seekg(0, std::ios::end);
 		contents.resize(in.tellg());
+		if (verbose)
+		{
+			std::cout << "reading in " << contents.size() << " Bytes from " << filename << std::endl;
+		}
 		in.seekg(0, std::ios::beg);
 		in.read(&contents[0], contents.size());
 		in.close();
@@ -27,21 +31,21 @@ std::string get_file_contents(const std::string &filename)
 constexpr char chars[4] = { 'A','C','G','T' };
 
 template <unsigned int K>
-void output(int index, std::string &kmer, const std::unique_ptr<int[]> &results, double denominator, std::stringstream &ss)
+void output(int index, std::string &kmer, const std::unique_ptr<int[]> &results, double denominator, std::ostream &os)
 {
 	for (int i = 0; i < 4; ++i)
 	{
 		kmer[kmer.length() - K] = chars[i];
-		output<K - 1>((index << 2) + i, kmer, results, denominator, ss);
+		output<K - 1>((index << 2) + i, kmer, results, denominator, os);
 	}
 }
 
 template<>
-void output<0>(int index, std::string &kmer, const std::unique_ptr<int[]> &results, double denominator, std::stringstream &ss)
+void output<0>(int index, std::string &kmer, const std::unique_ptr<int[]> &results, double denominator, std::ostream &os)
 {
 	int count = results[index] ;
 	if(count!=0)
-		ss << kmer << '\t' << count*denominator << '\n';
+		os << kmer << '\t' << count*denominator << '\n';
 }
 
 template <unsigned int K>
@@ -58,7 +62,7 @@ void countKmers(const std::string &s)
 	size_t count = 0;
 	uint64_t currentString = 0;//encodes the current string;
 	size_t total = 0;
-	std::stringstream ss;
+	std::string id;
 	size_t i = 0;
 	for (; i < s.length(); i++)
 	{
@@ -89,10 +93,11 @@ void countKmers(const std::string &s)
 		{
 			if (total > 0)
 			{
-				output<K>(0, std::string(K, ' '), results, 1.0 / (double)total, ss);
-				std::ofstream out("output" + std::to_string(i) + ".txt", std::ostream::trunc);
-				out << ss.rdbuf();
-				ss.str(std::string());
+				std::string outFileName = "output" + std::to_string(i) + ".txt";
+				std::ofstream out(outFileName, std::ostream::trunc | std::ostream::binary);
+				std::cout << "outputting Kmers to: "<< outFileName << std::endl;
+				out << id << std::endl;
+				output<K>(0, std::string(K, ' '), results, 1.0 / (double)total, out);
 				out.close();
 				total = 0;
 				count = 0;
@@ -100,7 +105,8 @@ void countKmers(const std::string &s)
 			//zero the results
 			memset(results.get(), 0, kmers*sizeof(int));
 			size_t endOfLine = s.find_first_of('\n', i);
-			ss << s.substr(i, endOfLine - i) << '\n';
+			id = s.substr(i, endOfLine - i);
+			std::cout << "counting Kmers in:" << id << std::endl;
 			i = endOfLine;
 		}
 		break;
@@ -119,10 +125,10 @@ void countKmers(const std::string &s)
 	start = std::chrono::high_resolution_clock::now();
 	
 	//output string
-	output<K>(0, std::string(K, ' '), results, 1.0 / (double)total, ss);
-	std::ofstream out("output" + std::to_string(i) + ".txt", std::ostream::trunc);
-	out << ss.rdbuf();
+	std::ofstream out("output" + std::to_string(i) + ".txt", std::ostream::trunc | std::ostream::binary);
+	output<K>(0, std::string(K, ' '), results, 1.0 / (double)total, out);
 	out.close();
+
 	std::cout << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start).count() << std::endl;
 }
 
@@ -142,7 +148,7 @@ int main(int argc, char** argv)
 		std::cout << "provide K via K=<integer between 1 and 15 inclusive>" << std::endl;
 		return 0;
 	}
-	std::string s = get_file_contents(inputFile);
+	std::string s = get_file_contents(inputFile, true);
 	std::cout << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start).count() << std::endl;
 
 	//this allows us to select a K at runtime even though it is a compile time constant
