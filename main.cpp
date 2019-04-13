@@ -138,7 +138,10 @@ void countKmers(const std::string &s, bool outputZeros)
 	start = std::chrono::high_resolution_clock::now();
 	
 	//output string
-	std::ofstream out("output" + std::to_string(i) + ".txt", std::ostream::trunc | std::ostream::binary);
+	std::string outFileName = "output" + std::to_string(i) + ".txt";
+	std::ofstream out(outFileName, std::ostream::trunc | std::ostream::binary);
+	std::cout << "outputting Kmers to: " << outFileName << std::endl;
+	out << id << std::endl;
 	if (outputZeros)
 	{
 		output<K, true>(0, std::string(K, ' '), results, 1.0 / (double)total, out);
