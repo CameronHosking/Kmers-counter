@@ -73,30 +73,32 @@ void countKmers(const std::string &s, bool outputZeros, bool split)
 	size_t i = 0;
 	for (; i < s.length(); i++)
 	{
-		count++;
-		switch (s[i])
+		char c = s[i];
+		//all alpha characters
+		if (c & 64)
 		{
-		case 'A':
-		case 'a':
-			currentString += 0;
-			break;
-		case 'C':
-		case 'c':
-			currentString += 1;
-			break;
-		case 'G':
-		case 'g':
-			currentString += 2;
-			break;
-		case 'T':
-		case 't':
-			currentString += 3;
-			break;
-		case '\n':
-		case '\r':
-			count--;
-			continue;
-		case '>':
+			if (c == 'N' || c == 'R')//unknown characters
+			{
+				count = 0;
+			}
+			else
+			{//this record the character ACGT or acgt with a value of 0x00 for Aa 0x01 for Cc 0x11 for Gg and 0x10 for Tt
+				count++;
+				//this v represents the character ACGT or acgt with a value of 0x00 for Aa, 0x01 for Cc, 0x11 for Gg, and 0x10 for Tt
+				uint8_t v = (c & 7) >> 1;
+				//xoring with itself bitshefted right by 1 doesnt effect A or C but flips the small bit of G and T
+				v ^= v >> 1;
+				//the letters are now alphebetically sorted with A=0, C=1, G=2, T=3
+				currentString += v;
+				if (count >= K)
+				{
+					results[currentString&mask]++;
+					total += 1;
+				}
+				currentString <<= 2;
+			}
+		}
+		else if(c== '>')
 		{
 			//if split is true then we ouput individual counts for each id found
 			if (split && total > 0)
@@ -124,17 +126,7 @@ void countKmers(const std::string &s, bool outputZeros, bool split)
 			i = endOfLine;
 			count = 0;
 		}
-		break;
-		default:// the N character
-			count = 0;
-			break;
-		}
-		if (count >= K)
-		{
-			results[currentString&mask]++;
-			total += 1;
-		}
-		currentString <<= 2;
+		//other characters are ignored eg \n\r etc
 	}
 	std::cout << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start).count() << std::endl;
 	start = std::chrono::high_resolution_clock::now();
@@ -143,7 +135,9 @@ void countKmers(const std::string &s, bool outputZeros, bool split)
 	std::string outFileName = "output" + std::to_string(i) + ".txt";
 	std::ofstream out(outFileName, std::ostream::trunc | std::ostream::binary);
 	std::cout << "outputting Kmers to: " << outFileName << std::endl;
-	out << id << std::endl;
+	if (split) {
+		out << id << std::endl;
+	}
 	if (outputZeros)
 	{
 		output<K, true>(0, std::string(K, ' '), results, 1.0 / (double)total, out);
