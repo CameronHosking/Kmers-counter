@@ -30,26 +30,32 @@ std::string get_file_contents(const std::string &filename, bool verbose = false)
 
 constexpr char chars[4] = { 'A','C','G','T' };
 
-template <unsigned int K>
+template <unsigned int K,bool OutputZeros>
 void output(int index, std::string &kmer, const std::unique_ptr<int[]> &results, double denominator, std::ostream &os)
 {
 	for (int i = 0; i < 4; ++i)
 	{
 		kmer[kmer.length() - K] = chars[i];
-		output<K - 1>((index << 2) + i, kmer, results, denominator, os);
+		output<K - 1, OutputZeros>((index << 2) + i, kmer, results, denominator, os);
 	}
 }
 
 template<>
-void output<0>(int index, std::string &kmer, const std::unique_ptr<int[]> &results, double denominator, std::ostream &os)
+void output<0,true>(int index, std::string &kmer, const std::unique_ptr<int[]> &results, double denominator, std::ostream &os)
 {
-	int count = results[index] ;
-	if(count!=0)
+	os << kmer << '\t' << results[index] *denominator << '\n';
+}
+
+template<>
+void output<0, false>(int index, std::string &kmer, const std::unique_ptr<int[]> &results, double denominator, std::ostream &os)
+{
+	int count = results[index];
+	if (count != 0)
 		os << kmer << '\t' << count*denominator << '\n';
 }
 
 template <unsigned int K>
-void countKmers(const std::string &s)
+void countKmers(const std::string &s, bool outputZeros)
 {
 	auto start = std::chrono::high_resolution_clock::now();
 	//allocate memory for the 4^K different kmers
@@ -70,19 +76,19 @@ void countKmers(const std::string &s)
 		switch (s[i])
 		{
 		case 'A':
-		//case 'a':
+		case 'a':
 			currentString += 0;
 			break;
 		case 'C':
-		//case 'c':
+		case 'c':
 			currentString += 1;
 			break;
 		case 'G':
-		//case 'g':
+		case 'g':
 			currentString += 2;
 			break;
 		case 'T':
-		//case 't':
+		case 't':
 			currentString += 3;
 			break;
 		case '\n':
@@ -97,7 +103,14 @@ void countKmers(const std::string &s)
 				std::ofstream out(outFileName, std::ostream::trunc | std::ostream::binary);
 				std::cout << "outputting Kmers to: "<< outFileName << std::endl;
 				out << id << std::endl;
-				output<K>(0, std::string(K, ' '), results, 1.0 / (double)total, out);
+				if (outputZeros)
+				{
+					output<K, true>(0, std::string(K, ' '), results, 1.0 / (double)total, out);
+				}
+				else
+				{
+					output<K, false>(0, std::string(K, ' '), results, 1.0 / (double)total, out);
+				}
 				out.close();
 				total = 0;
 				count = 0;
@@ -126,7 +139,14 @@ void countKmers(const std::string &s)
 	
 	//output string
 	std::ofstream out("output" + std::to_string(i) + ".txt", std::ostream::trunc | std::ostream::binary);
-	output<K>(0, std::string(K, ' '), results, 1.0 / (double)total, out);
+	if (outputZeros)
+	{
+		output<K, true>(0, std::string(K, ' '), results, 1.0 / (double)total, out);
+	}
+	else
+	{
+		output<K, false>(0, std::string(K, ' '), results, 1.0 / (double)total, out);
+	}
 	out.close();
 
 	std::cout << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start).count() << std::endl;
@@ -148,27 +168,30 @@ int main(int argc, char** argv)
 		std::cout << "provide K via K=<integer between 1 and 15 inclusive>" << std::endl;
 		return 0;
 	}
+	bool outputZeros = false;
+	setToBoolIfFlagFound(argc, argv, "outputZeros", true, outputZeros);
+
 	std::string s = get_file_contents(inputFile, true);
 	std::cout << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start).count() << std::endl;
 
 	//this allows us to select a K at runtime even though it is a compile time constant
 	switch (k)
 	{
-	case 1: countKmers<1>(s); break;
-	case 2: countKmers<2>(s); break;
-	case 3: countKmers<3>(s); break;
-	case 4: countKmers<4>(s); break;
-	case 5: countKmers<5>(s); break;
-	case 6: countKmers<6>(s); break;
-	case 7: countKmers<7>(s); break;
-	case 8: countKmers<8>(s); break;
-	case 9: countKmers<9>(s); break;
-	case 10: countKmers<10>(s); break;
-	case 11: countKmers<11>(s); break;
-	case 12: countKmers<12>(s); break;
-	case 13: countKmers<13>(s); break;
-	case 14: countKmers<14>(s); break;
-	case 15: countKmers<15>(s); break;		
+	case 1: countKmers<1>(s, outputZeros); break;
+	case 2: countKmers<2>(s, outputZeros); break;
+	case 3: countKmers<3>(s, outputZeros); break;
+	case 4: countKmers<4>(s, outputZeros); break;
+	case 5: countKmers<5>(s, outputZeros); break;
+	case 6: countKmers<6>(s, outputZeros); break;
+	case 7: countKmers<7>(s, outputZeros); break;
+	case 8: countKmers<8>(s, outputZeros); break;
+	case 9: countKmers<9>(s, outputZeros); break;
+	case 10: countKmers<10>(s, outputZeros); break;
+	case 11: countKmers<11>(s, outputZeros); break;
+	case 12: countKmers<12>(s, outputZeros); break;
+	case 13: countKmers<13>(s, outputZeros); break;
+	case 14: countKmers<14>(s, outputZeros); break;
+	case 15: countKmers<15>(s, outputZeros); break;
 	}
     return 0;
 }
