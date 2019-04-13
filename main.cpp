@@ -6,7 +6,9 @@
 #include <sstream>
 #include <chrono>
 
-std::string get_file_contents(const char *filename)
+#include "readArgs.h"
+
+std::string get_file_contents(const std::string &filename)
 {
 	std::ifstream in(filename, std::ios::in | std::ios::binary);
 	if (in)
@@ -127,10 +129,40 @@ void countKmers(const std::string &s)
 int main(int argc, char** argv)
 {
 	auto start = std::chrono::high_resolution_clock::now();
-	std::string s = get_file_contents("human_g1k_v37.fasta");
+	std::string inputFile;
+	int k;
+	if (!getCmdLineArgument(argc, argv, "input", inputFile))
+	{
+		std::cout << "provide input file via input=<filename>" << std::endl;
+		return 0;
+	}
+	//accepts both lower and uppercase k between 1 and 15
+	if (!(getCmdLineArgument(argc, argv, "k", k)|| getCmdLineArgument(argc, argv, "K", k))||k<1||k>15)
+	{
+		std::cout << "provide K via K=<integer between 1 and 15 inclusive>" << std::endl;
+		return 0;
+	}
+	std::string s = get_file_contents(inputFile);
 	std::cout << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start).count() << std::endl;
-	countKmers<4>(s);
-	int itl;
-	std::cin >> itl;
+
+	//this allows us to select a K at runtime even though it is a compile time constant
+	switch (k)
+	{
+	case 1: countKmers<1>(s); break;
+	case 2: countKmers<2>(s); break;
+	case 3: countKmers<3>(s); break;
+	case 4: countKmers<4>(s); break;
+	case 5: countKmers<5>(s); break;
+	case 6: countKmers<6>(s); break;
+	case 7: countKmers<7>(s); break;
+	case 8: countKmers<8>(s); break;
+	case 9: countKmers<9>(s); break;
+	case 10: countKmers<10>(s); break;
+	case 11: countKmers<11>(s); break;
+	case 12: countKmers<12>(s); break;
+	case 13: countKmers<13>(s); break;
+	case 14: countKmers<14>(s); break;
+	case 15: countKmers<15>(s); break;		
+	}
     return 0;
 }
