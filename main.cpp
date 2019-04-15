@@ -16,10 +16,9 @@ public:
 	InputReader()
 		:in(&(std::cin)), readingFile(false)
 	{
-		in->flags(std::ios::binary);
 	}
 
-	bool open(const std::string &filename)
+	void open(const std::string &filename)
 	{
 		if (readingFile)
 			delete in;
@@ -32,7 +31,7 @@ public:
 		}
 	}
 
-	bool read(std::string &s, size_t charsToRead)
+	bool read(std::string &s, int64_t charsToRead)
 	{
 		s.resize(charsToRead);
 		in->read(&s[0], charsToRead);
@@ -121,7 +120,7 @@ void output(Parameters &p, std::string id, const uint32_t results[], size_t tota
 	if (p.outputToFile)
 	{
 		std::string outFileName = p.outputFile;
-		if (split)
+		if (p.split)
 		{
 			size_t pos = outFileName.find_first_of('%', 0);
 			if (pos == std::string::npos)
@@ -136,7 +135,7 @@ void output(Parameters &p, std::string id, const uint32_t results[], size_t tota
 		out = new std::ofstream(outFileName, std::ostream::trunc| std::ostream::binary);
 		std::cout << "outputting Kmers to: " << outFileName << std::endl;
 	}
-	if (split) {
+	if (p.split) {
 		*out << id << std::endl;
 	}
 	if (p.outputZeros)
