@@ -10,7 +10,7 @@ std::vector<std::pair<std::string, std::string>> stringToListOfKeyValuePairs(con
 
 char * getLocOfCmdLineArg(int argc, char ** argv, const std::string & command);
 
-bool getCmdLineArgument(int argc, char ** argv, const std::string & command);
+bool cmdLineArgumentFound(int argc, char ** argv, const std::string & command);
 
 bool setToBoolIfFlagFound(int argc, char ** argv, const std::string & command, bool setTo, bool & value);
 

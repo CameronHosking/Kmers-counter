@@ -84,14 +84,14 @@ char * getLocOfCmdLineArg(int argc, char ** argv, const std::string & command)
 	return nullptr;
 }
 
-bool getCmdLineArgument(int argc, char ** argv, const std::string & command)
+bool cmdLineArgumentFound(int argc, char ** argv, const std::string & command)
 {
 	return getLocOfCmdLineArg(argc, argv, command) != nullptr;
 }
 
 bool setToBoolIfFlagFound(int argc, char ** argv, const std::string & command, bool setTo, bool & value)
 {
-	if (getCmdLineArgument(argc, argv, command))
+	if (cmdLineArgumentFound(argc, argv, command))
 	{
 		value = setTo;
 		return true;
