@@ -11,10 +11,20 @@
 class InputReader
 {
 	std::istream *in;
+	bool readingFile;
 public:
-	InputReader(const std::string &filename)
-		:in(new std::ifstream(filename, std::ios::in | std::ios::binary))
+	InputReader()
+		:in(&(std::cin)), readingFile(false)
 	{
+		in->flags(std::ios::binary);
+	}
+
+	bool open(const std::string &filename)
+	{
+		if (readingFile)
+			delete in;
+		in = new std::ifstream(filename, std::ios::in | std::ios::binary);
+		readingFile = true;
 		if (!in->good())
 		{
 			std::cout << "could not open \"" << filename << "\"" << std::endl;
@@ -37,7 +47,8 @@ public:
 	}
 	~InputReader()
 	{
-		delete in;
+		if(readingFile)
+			delete in;
 	}
 };
 
@@ -200,16 +211,21 @@ void countKmers(InputReader &input, bool outputZeros, bool split)
 int main(int argc, char** argv)
 {
 	std::string inputFile;
+	InputReader s;
 	int k;
-	if (!getCmdLineArgument(argc, argv, "input", inputFile))
+	if (getCmdLineArgument(argc, argv, "input", inputFile))
 	{
-		std::cout << "provide input file via input=<filename>" << std::endl;
-		return 0;
+		s.open(inputFile);
 	}
 	//accepts both lower and uppercase k between 1 and 15
 	if (!(getCmdLineArgument(argc, argv, "k", k)|| getCmdLineArgument(argc, argv, "K", k))||k<1||k>15)
 	{
-		std::cout << "provide K via K=<integer between 1 and 15 inclusive>" << std::endl;
+		std::cout << "Usage KmersCounter K=<integer> [options]" << std::endl;
+		std::cout << "The integer provided for K must be between 1 and 15 inclusive" << std::endl;
+		std::cout << "input is streamed from stdin unless input file is specified via input=<filename>" << std::endl;
+		std::cout << "-split splits k-mer counts between id lines (lines starting with >) otherwise" << std::endl;
+		std::cout << "-outputZeros outputs 0 frequencies otherwise that k-mer is skipped in output" << std::endl;
+		std::cout << "see readme for more information" << std::endl;
 		return 0;
 	}
 	bool outputZeros = false;
@@ -218,7 +234,6 @@ int main(int argc, char** argv)
 	bool split = false;
 	setToBoolIfFlagFound(argc, argv, "split", true, split);
 
-	InputReader s(inputFile);
 	//this allows us to select a K at runtime even though it is a compile time constant
 	switch (k)
 	{
