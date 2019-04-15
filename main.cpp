@@ -8,27 +8,38 @@
 #include <cstring>
 
 #include "readArgs.h"
-
-std::string get_file_contents(const std::string &filename, bool verbose = false)
+class InputReader
 {
-	std::ifstream in(filename, std::ios::in | std::ios::binary);
-	if (in)
+	std::istream *in;
+public:
+	InputReader(const std::string &filename)
+		:in(new std::ifstream(filename, std::ios::in | std::ios::binary))
 	{
-		std::string contents;
-		in.seekg(0, std::ios::end);
-		contents.resize(in.tellg());
-		if (verbose)
+		if (!in->good())
 		{
-			std::cout << "reading in " << contents.size() << " Bytes from " << filename << std::endl;
+			std::cout << "could not open \"" << filename << "\"" << std::endl;
+			exit(1);
 		}
-		in.seekg(0, std::ios::beg);
-		in.read(&contents[0], contents.size());
-		in.close();
-		return(contents);
 	}
-	std::cout << "could not open \"" << filename << "\"" << std::endl;
-	exit(1);
-}
+
+	bool read(std::string &s, size_t charsToRead)
+	{
+		s.resize(charsToRead);
+		in->read(&s[0], charsToRead);
+		//we reached the end of the input
+		if (in->gcount() < charsToRead)
+		{
+			s.resize(in->gcount());
+			if(in->gcount()==0)
+				return false;
+		}
+		return true;
+	}
+	~InputReader()
+	{
+		delete in;
+	}
+};
 
 constexpr char chars[4] = { 'A','C','G','T' };
 
@@ -85,7 +96,7 @@ void output(size_t i, std::string id, bool split, bool outputZeros, const uint32
 //set the id to the contents of this line
 //return the index at the end of the line
 template<unsigned int K>
-size_t newID(bool split, size_t total, size_t i, std::string &id, bool outputZeros, uint32_t results[], const std::string &s)
+size_t newID(bool split, size_t total, size_t i, std::string &id, bool outputZeros, uint32_t results[], std::string &s, InputReader &in)
 {
 	uint64_t kmers = 1LL << K * 2;
 	//if split is true then we ouput individual counts for each id found
@@ -95,8 +106,19 @@ size_t newID(bool split, size_t total, size_t i, std::string &id, bool outputZer
 		//zero the results
 		memset(results, 0, kmers*sizeof(int));
 	}
-	size_t endOfLine = s.find_first_of('\n', i);
-	id = s.substr(i, endOfLine - i);
+	size_t endOfLine;
+	id = "";
+	//this is a while loop in case somehow the id length is longer than the read buffer we're using
+	while((endOfLine = s.find_first_of('\n', i)) == std::string::npos)
+	{
+		id += s.substr(i);
+		in.read(s, 1000000);
+		i = 0;
+		endOfLine = s.find_first_of('\n', i);
+	}
+
+	id += s.substr(i, endOfLine - i);
+		
 	std::cout << "counting Kmers in:" << id << std::endl;
 	return endOfLine;
 }
@@ -111,60 +133,62 @@ inline uint8_t charTo2bit(char c)
 }
 
 template <unsigned int K>
-void countKmers(const std::string &s, bool outputZeros, bool split)
+void countKmers(InputReader &input, bool outputZeros, bool split)
 {
 	auto start = std::chrono::high_resolution_clock::now();
 	//allocate memory for the 4^K different kmers
 	uint64_t kmers = 1LL << K * 2;
 	std::unique_ptr<uint32_t[]> results = std::unique_ptr<uint32_t[]>(new uint32_t[kmers]());
-	std::cout << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start).count() << std::endl;
-	start = std::chrono::high_resolution_clock::now();
 	//creates a bitmask that we can slap on a coded string to grab the last K characters
 	uint64_t mask = kmers - 1;
 	size_t count = 0;
 	uint64_t currentString = 0;//encodes the current string;
 	size_t total = 0;
 	std::string id;
+	std::string s;
 	size_t i = 0;
-
-	for (; i < s.length(); i++)
+	while (input.read(s, 1000000))
 	{
-		char c = s[i];
-
-		//all alpha characters
-		if (c & 64)
+		for (i=0; i < s.length(); i++)
 		{
-			//if the character is any of upper or lowercase ACGT
-			char cLast5bits = c & 31;
-			if (cLast5bits == ('A' & 31) || cLast5bits == ('C' & 31) || cLast5bits == ('G' & 31) || cLast5bits == ('T' & 31))
+			char c = s[i];
+
+			//all alpha characters
+			if (c & 64)
 			{
-				count++;
-				//convert the character to a 2bit number and add it to the end of the current string
-				currentString += charTo2bit(c);
-				if (count >= K)
+				//if the character is any of upper or lowercase ACGT
+				char cLast5bits = c & 31;
+				if (cLast5bits == ('A' & 31) || cLast5bits == ('C' & 31) || cLast5bits == ('G' & 31) || cLast5bits == ('T' & 31))
 				{
-					//increment the number of counts for this particular string
-					results[currentString&mask]++;
-					total += 1;
+					count++;
+					//convert the character to a 2bit number and add it to the end of the current string
+					currentString += charTo2bit(c);
+					if (count >= K)
+					{
+						//increment the number of counts for this particular string
+						results[currentString&mask]++;
+						total += 1;
+					}
+					currentString <<= 2;
+				}//otherwise it is an unknown so reset the count
+				else
+				{
+					count = 0;
 				}
-				currentString <<= 2;
-			}//otherwise it is an unknown so reset the count
-			else
+			}
+			else if (c == '>')
 			{
+				i = newID<K>(split, total, i, id, outputZeros, results.get(), s, input);
+				if (split)
+				{
+					total = 0;
+				}
 				count = 0;
 			}
+			//other characters are ignored eg \n\r etc
 		}
-		else if(c== '>')
-		{
-			i = newID<K>(split, total, i, id, outputZeros, results.get(), s);
-			if (split)
-			{
-				total = 0;
-			}
-			count = 0;
-		}
-		//other characters are ignored eg \n\r etc
 	}
+	
 	std::cout << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start).count() << std::endl;
 	start = std::chrono::high_resolution_clock::now();
 	
@@ -175,7 +199,6 @@ void countKmers(const std::string &s, bool outputZeros, bool split)
 
 int main(int argc, char** argv)
 {
-	auto start = std::chrono::high_resolution_clock::now();
 	std::string inputFile;
 	int k;
 	if (!getCmdLineArgument(argc, argv, "input", inputFile))
@@ -195,9 +218,7 @@ int main(int argc, char** argv)
 	bool split = false;
 	setToBoolIfFlagFound(argc, argv, "split", true, split);
 
-	std::string s = get_file_contents(inputFile, true);
-	std::cout << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start).count() << std::endl;
-
+	InputReader s(inputFile);
 	//this allows us to select a K at runtime even though it is a compile time constant
 	switch (k)
 	{
