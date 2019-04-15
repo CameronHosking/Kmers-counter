@@ -26,7 +26,8 @@ std::string get_file_contents(const std::string &filename, bool verbose = false)
 		in.close();
 		return(contents);
 	}
-	throw(errno);
+	std::cout << "could not open \"" << filename << "\"" << std::endl;
+	exit(1);
 }
 
 constexpr char chars[4] = { 'A','C','G','T' };
