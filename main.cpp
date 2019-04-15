@@ -5,7 +5,7 @@
 #include <memory>
 #include <sstream>
 #include <chrono>
-
+#include <cstring>
 
 #include "readArgs.h"
 
@@ -68,13 +68,14 @@ void output(size_t i, std::string id, bool split, bool outputZeros, const uint32
 	if (split) {
 		out << id << std::endl;
 	}
+	std::string baseKmer = std::string(K, ' ');
 	if (outputZeros)
 	{
-		output<K, true>(0, std::string(K, ' '), results, 1.0 / (double)total, out);
+		output<K, true>(0, baseKmer, results, 1.0 / (double)total, out);
 	}
 	else
 	{
-		output<K, false>(0, std::string(K, ' '), results, 1.0 / (double)total, out);
+		output<K, false>(0, baseKmer, results, 1.0 / (double)total, out);
 	}
 	out.close();
 }

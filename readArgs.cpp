@@ -42,7 +42,7 @@ std::vector<std::pair<std::string, std::string>> stringToListOfKeyValuePairs(con
 	return keyValuePairs;
 }
 
-char * getLocOfCmdLineArg(int argc, char ** argv, const char * command)
+char * getLocOfCmdLineArg(int argc, char ** argv, const std::string & command)
 {
 	if (argc >= 1)
 	{
@@ -68,7 +68,7 @@ char * getLocOfCmdLineArg(int argc, char ** argv, const char * command)
 				index++;
 			}
 			//the characters don't match or the argument is shorter than the command
-			if (mismatchFound || index < strlen(command))
+			if (mismatchFound || index < command.length())
 				continue;
 			if (arg[index] == '=')
 				index++;
@@ -84,12 +84,12 @@ char * getLocOfCmdLineArg(int argc, char ** argv, const char * command)
 	return nullptr;
 }
 
-bool getCmdLineArgument(int argc, char ** argv, const char * command)
+bool getCmdLineArgument(int argc, char ** argv, const std::string & command)
 {
 	return getLocOfCmdLineArg(argc, argv, command) != nullptr;
 }
 
-bool setToBoolIfFlagFound(int argc, char ** argv, const char * command, bool setTo, bool & value)
+bool setToBoolIfFlagFound(int argc, char ** argv, const std::string & command, bool setTo, bool & value)
 {
 	if (getCmdLineArgument(argc, argv, command))
 	{
@@ -99,7 +99,7 @@ bool setToBoolIfFlagFound(int argc, char ** argv, const char * command, bool set
 	return false;
 }
 
-bool getCmdLineArgument(int argc, char ** argv, const char * command, std::string & value)
+bool getCmdLineArgument(int argc, char ** argv, const std::string & command, std::string & value)
 {
 	char* arg = getLocOfCmdLineArg(argc, argv, command);
 	if (arg == nullptr)
@@ -118,40 +118,4 @@ std::string trim(std::string s)
 		return "";
 	size_t last = s.find_last_not_of(" \n\r\t");
 	return s.substr(first, (last - first + 1));
-}
-
-
-Args::Args(const std::string &filename)
-{
-	std::string line;
-	std::ifstream myfile(filename, std::ifstream::in);
-	if (!myfile.is_open())
-	{
-		std::cout << "could not open " << filename << " for reading" << std::endl;
-		loaded = false;
-		return;
-	}
-	std::vector<std::string> lines;
-	lines.push_back(filename);
-	while (std::getline(myfile, line))
-	{
-		lines.push_back(trim(line));
-	}
-	c = (int)lines.size();
-	v = new char*[c];
-	for (int i = 0; i < lines.size(); ++i)
-	{
-		size_t size = lines.at(i).size() + 1;
-		v[i] = new char[size];
-		strcpy_s(v[i], size, lines.at(i).c_str());
-	}
-	loaded = true;
-}
-
-Args::~Args()
-{
-	for (int i = 0; i < c; ++i)
-	{
-		delete[] v[i];
-	}
 }
