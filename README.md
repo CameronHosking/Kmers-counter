@@ -1,4 +1,8 @@
 # Welcome to the Kmers-counter wiki!
+
+# Installation
+download all files into the same folder then run `make` to generate the executable.
+
 # Arguments
 Arguments are supplied as either flags or key value 
 pairs.
