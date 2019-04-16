@@ -24,7 +24,7 @@ public:
 		if (readingFile)
 			fclose(fp);
 #ifdef _WIN32
-		fopen_s(&fb, filename.c_str(), "rb");
+		fopen_s(&fp, filename.c_str(), "rb");
 #else // _WIN32
 		fp = fopen(filename.c_str(), "rb");
 #endif
