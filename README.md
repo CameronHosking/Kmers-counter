@@ -11,39 +11,39 @@ This specifies the length of kmers to count, currently supports values between 1
 
 ## Optional arguments
 
-**-outputZeros**  
-If this flag is present than kmers with counts of 
+**-outputZeros** or **-z**  
+If this flag is present then kmers with counts of 
 zero are output otherwise they are skipped
 
-**-split** 
+**-split** or **-s**  
 If this flag is present then kmer counts between id tags (which are defined as lines starting with '>') 
 are counted separately and output into separate files. Each file is headed by the id tag.
 
-**-input=<filename>** 
+**-input=<filename>** or **-i**  
 This specifies the input file which must be in fasta format or just a string of characters. If this option is not specified then the sequence will be read from stdin.
 
-**-output=<filename>** 
+**-output=<filename>** or **-o**  
 This specifies the output file(s). If the split flag is present then the files will be numbered from 1 to the number of id lines present. to select where the number appears in the filename add a %, the first occurrence of which will be replaced by the file number. If this option is not specified output will be to stdout.
 
 ## Output
-The output is tab seperated in which the Kmers are listed alphabetically in column one and their associated frequencies are in column two.
+The output is tab seperated, Kmers are listed alphabetically in column one and their associated frequencies are in column two.
 
 ## Examples
-    ./KmersCounter -K4
+    ./KmersCounter -K=4
 
-This will read a sequence from stdin and output the kmer frequencies to stdout only showing thos kmers that appeared at least once
+This will read a sequence from stdin and output the frequency of all the different sequences 
+consisting of [ACGT] of length 4 to stdout only showing those kmers that appeared at least once
 
 ##
 
     ./KmersCounter -input=human_g1k_v37.fasta -K=8 -output="out.txt"  
 This will read in the file `human_g1k_v37.fasta` and 
-output the frequency of all the different sequences 
-consisting of [ACGT] of length 8 to one file "out.txt".
+output the frequency of kmers of length 4 to "out.txt".
 
 ##
 
     /KmersCounter -K=8 -output=out -split 
-This will from stdin and output the frequency of all the different sequences consisting of [ACGT] of length 8 seperated by id to 1 file per id: "out1", "out2", "out3", etc.
+This will read from stdin and output the frequency of all the different sequences consisting of [ACGT] of length 8 seperated by id to 1 file per id: "out1", "out2", "out3", etc.
 
 ##
 

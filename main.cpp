@@ -61,8 +61,8 @@ struct Parameters
 	unsigned int k;
 	Parameters(int argc, char** argv)
 	{
-		outputZeros = cmdLineArgumentFound(argc, argv, "outputZeros");
-		split = cmdLineArgumentFound(argc, argv, "split");
+		outputZeros = cmdLineArgumentFound(argc, argv, "outputZeros")|cmdLineArgumentFound(argc, argv, "z");
+		split = cmdLineArgumentFound(argc, argv, "split")|cmdLineArgumentFound(argc, argv, "s");
 
 		if (!(getCmdLineArgument(argc, argv, "k", k) || getCmdLineArgument(argc, argv, "K", k)) || k<1 || k>15)
 		{
@@ -77,7 +77,10 @@ struct Parameters
 		}
 
 		getCmdLineArgument(argc, argv, "input", inputFile);
+		getCmdLineArgument(argc, argv, "i", inputFile);
 		getCmdLineArgument(argc, argv, "output", outputFile);
+		getCmdLineArgument(argc, argv, "o", outputFile);
+
 		outputToFile = (outputFile != std::string());
 	}
 };
