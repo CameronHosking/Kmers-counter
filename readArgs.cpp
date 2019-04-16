@@ -78,6 +78,12 @@ char * getLocOfCmdLineArg(int argc, char ** argv, const std::string & command)
 				//otherwise this just happens to be an argument where the first characters match the flag
 				continue;
 			}
+			else if (i + 1 < argc)
+			{
+				//no = was found but we reached the end of both argument and command
+				//the value must be in the adjacent argument
+				return argv[i+1];
+			}
 			return arg + index;
 		}
 	}
