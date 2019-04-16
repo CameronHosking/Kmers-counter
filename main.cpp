@@ -6,25 +6,30 @@
 #include <sstream>
 #include <chrono>
 #include <cstring>
+#include <stdio.h>
 
 #include "readArgs.h"
 class InputReader
 {
-	std::istream *in;
+	std::FILE *fp;
 	bool readingFile;
 public:
 	InputReader()
-		:in(&(std::cin)), readingFile(false)
+		:fp(stdin), readingFile(false)
 	{
 	}
 
 	void open(const std::string &filename)
 	{
 		if (readingFile)
-			delete in;
-		in = new std::ifstream(filename, std::ios::in | std::ios::binary);
+			fclose(fp);
+#ifdef _WIN32
+		fopen_s(&fb, filename.c_str(), "rb");
+#else // _WIN32
+		fp = fopen(filename.c_str(), "rb");
+#endif
 		readingFile = true;
-		if (!in->good())
+		if (fp==NULL)
 		{
 			std::cout << "could not open \"" << filename << "\"" << std::endl;
 			exit(1);
@@ -34,12 +39,13 @@ public:
 	bool read(std::string &s, int64_t charsToRead)
 	{
 		s.resize(charsToRead);
-		in->read(&s[0], charsToRead);
+
+		int charsRead = fread(&s[0] ,1 , charsToRead, fp);
 		//we reached the end of the input
-		if (in->gcount() < charsToRead)
+		if (charsRead < charsToRead)
 		{
-			s.resize(in->gcount());
-			if(in->gcount()==0)
+			s.resize(charsRead);
+			if (charsRead == 0)
 				return false;
 		}
 		return true;
@@ -47,7 +53,7 @@ public:
 	~InputReader()
 	{
 		if(readingFile)
-			delete in;
+			fclose(fp);
 	}
 };
 
@@ -291,5 +297,5 @@ int main(int argc, char** argv)
 	case 14: countKmers<14>(s, p); break;
 	case 15: countKmers<15>(s, p); break;
 	}
-    return 0;
+	return 0;
 }
