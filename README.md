@@ -1,7 +1,7 @@
 # Welcome to the Kmers-counter wiki!
 # Arguments
 Arguments are supplied as either flags or key value 
-pairs separated with an equals sign.
+pairs.
 
 ## Required arguments
 
@@ -19,10 +19,10 @@ zero are output otherwise they are skipped
 If this flag is present then kmer counts between id tags (which are defined as lines starting with '>') 
 are counted separately and output into separate files. Each file is headed by the id tag.
 
-**-input=<filename>** or **-i**  
+**-input=<filename>** or **-i=<filename>**  
 This specifies the input file which must be in fasta format or just a string of characters. If this option is not specified then the sequence will be read from stdin.
 
-**-output=<filename>** or **-o**  
+**-output=<filename>** or **-o=<filename>**  
 This specifies the output file(s). If the split flag is present then the files will be numbered from 1 to the number of id lines present. to select where the number appears in the filename add a %, the first occurrence of which will be replaced by the file number. If this option is not specified output will be to stdout.
 
 ## Output
@@ -57,7 +57,7 @@ This will will also output sequences that have a frequency of zero.
 
 ##
 
-    ./KmersCounter -input=test.txt -K=3
+    ./KmersCounter -i "test.txt" -K=3
 where test.txt is just `CAGTAGCNGATCAGGTAGCCGATNAGCANTAGGANNNNNNNNNNN`
 produces the output.  
 

@@ -68,10 +68,10 @@ struct Parameters
 		{
 			std::cout << "Usage KmersCounter K=<integer> [options]" << std::endl;
 			std::cout << "The integer provided for K must be between 1 and 15 inclusive" << std::endl;
-			std::cout << "input is streamed from stdin unless input file is specified via input=<filename>" << std::endl;
-			std::cout << "output is to stdout unless output=<filename> is set." << std::endl;
-			std::cout << "-split splits k-mer counts between id lines (lines starting with >)" << std::endl;
-			std::cout << "-outputZeros outputs 0 frequencies otherwise that k-mer is skipped in output" << std::endl;
+			std::cout << "input is streamed from stdin unless input file is specified via input=<filename>|i=<filename> (i)." << std::endl;
+			std::cout << "output is to stdout unless output=<filename>|o=<filename> is set." << std::endl;
+			std::cout << "-split|-s splits k-mer counts between id lines (lines starting with >)." << std::endl;
+			std::cout << "-outputZeros|-z outputs 0 frequencies otherwise that k-mer is skipped in output" << std::endl;
 			std::cout << "see readme for more information" << std::endl;
 			k = 0;
 		}
