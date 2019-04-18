@@ -1,7 +1,7 @@
 # Welcome to the Kmers-counter wiki!
 
 # Installation
-download all files into the same folder then run `make` to generate the executable.
+Download all files into the same folder then run `make` to generate the executable.
 
 # Arguments
 Arguments are supplied as either flags or key value 
@@ -35,7 +35,7 @@ All Kmers of length 1 are output first then 2 etc up to length K.
 The additional computational cost of this is negligible.
 
 ## Output
-The output is tab seperated, Kmers are listed alphabetically in column one and their associated frequencies are in column two.
+The output is tab seperated, Kmers are listed alphabetically in column one and their associated frequencies are in column two, these are always in scientific notation with 10 significant figures, even zero, which is displayed as `0.000000000e+00`.
 
 ## Examples
     ./KmersCounter -K=4
@@ -70,18 +70,18 @@ This will will also output sequences that have a frequency of zero.
 where test.txt is just `CAGTAGCNGATCAGGTAGCCGATNAGCANTAGGANNNNNNNNNNN`
 produces the output.  
 
-    AGC	0.130435
-    AGG	0.0869565
-    AGT	0.0434783
-    ATC	0.0434783
-    CAG	0.0869565  
-    CCG	0.0434783  
-    CGA	0.0434783  
-    GAT	0.0869565  
-    GCA	0.0434783  
-    GCC	0.0434783  
-    GGA	0.0434783  
-    GGT	0.0434783  
-    GTA	0.0869565  
-    TAG	0.130435  
-    TCA	0.0434783
+    AGC	1.304347826e-01
+    AGG	8.695652174e-02
+    AGT	4.347826087e-02
+    ATC	4.347826087e-02
+    CAG	8.695652174e-02  
+    CCG	4.347826087e-02  
+    CGA	4.347826087e-02  
+    GAT	8.695652174e-02  
+    GCA	4.347826087e-02  
+    GCC	4.347826087e-02  
+    GGA	4.347826087e-02  
+    GGT	4.347826087e-02  
+    GTA	8.695652174e-02  
+    TAG	1.304347826e-01  
+    TCA	4.347826087e-02
