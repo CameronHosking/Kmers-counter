@@ -8,7 +8,12 @@
 #include <cstring>
 #include <stdio.h>
 
+#include "ryu\ryu2_header_only.hpp"
+
 #include "readArgs.h"
+
+#define SIG_FIGS 10
+
 class InputReader
 {
 	std::FILE *fp;
@@ -140,15 +145,20 @@ void output(int index, std::string &kmer, const uint32_t results[], double denom
 template<>
 void output<0,true>(int index, std::string &kmer, const uint32_t results[], double denominator, std::ostream &os)
 {
-	os << kmer << '\t' << results[index] *denominator << '\n';
+	char buff[SIG_FIGS+5];
+	ryu::d2exp_buffered(results[index]*denominator, SIG_FIGS -1, buff);
+	os << kmer << '\t' << buff << '\n';
 }
 
 template<>
 void output<0, false>(int index, std::string &kmer, const uint32_t results[], double denominator, std::ostream &os)
 {
 	int count = results[index];
+	//+1 for decimal point + 2 for exponent + 2 for -e
+	char buff[SIG_FIGS + 5];
+	ryu::d2exp_buffered(count*denominator, SIG_FIGS - 1, buff);
 	if (count != 0)
-		os << kmer << '\t' << count*denominator << '\n';
+		os << kmer << '\t' << buff << '\n';
 }
 
 //prepares an outputter
