@@ -132,33 +132,34 @@ struct Parameters
 constexpr char chars[4] = { 'A','C','G','T' };
 
 template <unsigned int K,bool OutputZeros>
-void output(int index, std::string &kmer, const uint32_t results[], double denominator, std::ostream &os)
+void output(int index, char * kmer, uint8_t charLocation, const uint32_t results[], double denominator, std::ostream &os)
 {
 	for (int i = 0; i < 4; ++i)
 	{
-		kmer[kmer.length() - K] = chars[i];
-		output<K - 1, OutputZeros>((index << 2) + i, kmer, results, denominator, os);
+		kmer[charLocation] = chars[i];
+		output<K - 1, OutputZeros>((index << 2) + i, kmer,charLocation+1, results, denominator, os);
 	}
 }
 
 //base case prints out the kmer and associated frequency
 template<>
-void output<0,true>(int index, std::string &kmer, const uint32_t results[], double denominator, std::ostream &os)
+void output<0,true>(int index, char * kmer, uint8_t charLocation, const uint32_t results[], double denominator, std::ostream &os)
 {
-	char buff[SIG_FIGS+5];
-	ryu::d2exp_buffered(results[index]*denominator, SIG_FIGS -1, buff);
-	os << kmer << '\t' << buff << '\n';
+	ryu::d2exp_buffered_n(results[index]*denominator, SIG_FIGS -1, &kmer[charLocation+1]);
+	os.write(kmer, charLocation + SIG_FIGS + 7);
 }
 
 template<>
-void output<0, false>(int index, std::string &kmer, const uint32_t results[], double denominator, std::ostream &os)
+void output<0, false>(int index, char * kmer, uint8_t charLocation, const uint32_t results[], double denominator, std::ostream &os)
 {
 	int count = results[index];
-	//+1 for decimal point + 2 for exponent + 2 for -e
-	char buff[SIG_FIGS + 5];
-	ryu::d2exp_buffered(count*denominator, SIG_FIGS - 1, buff);
+
 	if (count != 0)
-		os << kmer << '\t' << buff << '\n';
+	{
+		ryu::d2exp_buffered_n(count*denominator, SIG_FIGS - 1, &kmer[charLocation + 1]);
+		os.write(kmer, charLocation + SIG_FIGS + 7);
+	}
+		
 }
 
 //prepares an outputter
@@ -194,14 +195,18 @@ template<unsigned int K>
 void output(const Parameters &p, const uint32_t results[], size_t total, std::ostream &out)
 {
 	//output string
-	std::string baseKmer = std::string(K, ' ');
+	//+8 is from: 1 tab, the decimal point, the e-XX, the newline character, and the null character
+	char baseKmer[K+ SIG_FIGS + 8];
+	baseKmer[K] = '\t';
+	baseKmer[K + SIG_FIGS + 6] = '\n';
+	baseKmer[K + SIG_FIGS + 7] = '\0';
 	if (p.outputZeros)
 	{
-		output<K, true>(0, baseKmer, results, 1.0 / (double)total, out);
+		output<K, true>(0, baseKmer,0, results, 1.0 / (double)total, out);
 	}
 	else
 	{
-		output<K, false>(0, baseKmer, results, 1.0 / (double)total, out);
+		output<K, false>(0, baseKmer,0, results, 1.0 / (double)total, out);
 	}
 }
 
