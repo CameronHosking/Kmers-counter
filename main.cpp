@@ -36,11 +36,11 @@ public:
 		}
 	}
 
-	bool read(std::string &s, int64_t charsToRead)
+	bool read(std::string &s, size_t charsToRead)
 	{
 		s.resize(charsToRead);
 
-		int charsRead = fread(&s[0] ,1 , charsToRead, fp);
+		size_t charsRead = fread(&s[0] ,1 , charsToRead, fp);
 		//we reached the end of the input
 		if (charsRead < charsToRead)
 		{
@@ -203,14 +203,14 @@ class outputMultiple
 public:
 
 	template<unsigned int S=1>
-	static void doit(const Parameters &p, const std::unique_ptr<uint32_t[]> results[K], size_t totals[K], std::ostream &out)
+	static void call(const Parameters &p, const std::unique_ptr<uint32_t[]> results[K], size_t totals[K], std::ostream &out)
 	{
-		output<S>(p, results[S-1].get(), totals[S-1] + totals[K - 1], out);
-		doit<S+1>(p, results, totals, out);
+		output<S>(p, results[S-1].get(), totals[S - 1], out);
+		call<S+1>(p, results, totals, out);
 	}
 
 	template<>
-	static void doit<K>(const Parameters &p, const std::unique_ptr<uint32_t[]> results[K], size_t totals[K], std::ostream &out)
+	static void call<K>(const Parameters &p, const std::unique_ptr<uint32_t[]> results[K], size_t totals[K], std::ostream &out)
 	{
 		output<K>(p, results[K - 1].get(), totals[K - 1], out);
 	}
@@ -250,6 +250,23 @@ inline uint8_t charTo2bit(char c)
 	return v ^ (v >> 1);
 }
 
+template <unsigned int K>
+void prepareMultipleKResults(std::unique_ptr<uint32_t[]> *results, size_t *totals)
+{
+	size_t kmers = 1LL << K * 2;
+	size_t lowerKindex = 0;
+	for (size_t i = 0; i < kmers; i += 4)
+	{
+		results[K - 2][lowerKindex] += results[K - 1][i] + results[K - 1][i + 1] + results[K - 1][i + 2] + results[K - 1][i + 3];
+		lowerKindex++;
+	}
+	totals[K - 2] += totals[K - 1];
+	prepareMultipleKResults<K - 1>(results, totals);
+}
+template <>
+void prepareMultipleKResults<1>(std::unique_ptr<uint32_t[]> *results, size_t *totals)
+{}
+
 template <unsigned int K, bool allUpToK>
 void countKmers(InputReader &input,const Parameters &p)
 {
@@ -259,25 +276,21 @@ void countKmers(InputReader &input,const Parameters &p)
 	std::unique_ptr<uint32_t[]> results;
 	std::unique_ptr<uint32_t[]> resultsForall[K];
 	//creates a bitmask that we can slap on a coded string to grab the last K characters
-	uint64_t mask;
-	uint64_t masks[K];
-	size_t total;
+	uint64_t mask = kmers - 1;;
 	size_t totals[K];
+	size_t total = 0;
 
 	if (allUpToK)
 	{
 		for (int i = 0; i < K; ++i)
 		{
 			uint64_t kmers = 1LL << (i+1) * 2;
-			masks[i] = kmers - 1;
 			totals[i] = 0;
 			resultsForall[i] = std::unique_ptr<uint32_t[]>(new uint32_t[kmers]());
 		}
 	}
 	else
 	{
-		mask = kmers - 1;
-		total = 0;
 		results = std::unique_ptr<uint32_t[]>(new uint32_t[kmers]());
 	}
 
@@ -303,48 +316,52 @@ void countKmers(InputReader &input,const Parameters &p)
 					//convert the character to a 2bit number and add it to the end of the current string
 					currentString += charTo2bit(c);
 					count++;
-
-					if(allUpToK)
+					
+					if (count >= K)
 					{
-						if (count >= K)
-						{
-
-							for (int Kindex = 0; Kindex < K; ++Kindex)
-							{
-								resultsForall[Kindex][currentString&masks[Kindex]]++;
-							}
-							//to avoid unneccessary work we only add to the last totals
-							//to get the totals for the Kmers less than length K we just add
-							//this one to their total
-							totals[K - 1]++;
-						}
-						else
-						{
-							for (int Kindex = 0; Kindex < count; ++Kindex)
-							{
-								resultsForall[Kindex][currentString&masks[Kindex]]++;
-								totals[Kindex]++;
-							}
-						}						
-					}
-					else
-					{
-						if (count >= K)
-						{
-							//increment the number of counts for this particular string
-							results[currentString&mask]++;
-							total += 1;
-						}
+						//increment the number of counts for this particular string
+						(allUpToK ? resultsForall[K - 1] : results)[currentString&mask]++;
+						(allUpToK ? totals[K - 1] : total) += 1;
 					}
 					currentString <<= 2;
 				}//otherwise it is an unknown so reset the count
 				else
 				{
+					//count the shorter kmers
+					if (allUpToK && count > 0)
+					{
+						currentString >>= 2;
+						size_t i = (count < K - 1) ? count : K - 1;
+						uint64_t kmers = 1LL << i * 2;
+						uint64_t mask = kmers - 1;
+						for (; i > 0; i--)
+						{
+							resultsForall[i-1][mask&currentString]++;
+							totals[i-1]++;
+							mask >>= 2;
+						}
+						currentString <<= 2;
+					}
 					count = 0;
 				}
 			}
 			else if (c == '>')
 			{
+				//count the shorter kmers
+				if (allUpToK && count > 0)
+				{
+					currentString >>= 2;
+					size_t i = (count < K - 1) ? count : K - 1;
+					uint64_t kmers = 1LL << i * 2;
+					uint64_t mask = kmers - 1;
+					for (; i > 0; i--)
+					{
+						resultsForall[i-1][mask&currentString]++;
+						totals[i-1]++;
+						mask >>= 2;
+					}
+					currentString <<= 2;
+				}
 				//if split is true then we ouput individual counts for each id found
 				if (p.split&&(allUpToK?totals[0]:total) > 0)
 				{
@@ -352,7 +369,8 @@ void countKmers(InputReader &input,const Parameters &p)
 					prepareOutputStream(p, id, idsFound, out);
 					if (allUpToK)
 					{
-						outputMultiple<K>::doit(p, resultsForall, totals, out.getStream());
+						prepareMultipleKResults<K>(resultsForall, totals);
+						outputMultiple<K>::call(p, resultsForall, totals, out.getStream());
 						for (int Kindex = 0; Kindex < K; ++Kindex)
 						{
 							totals[Kindex] = 0;
@@ -384,7 +402,8 @@ void countKmers(InputReader &input,const Parameters &p)
 	prepareOutputStream(p, id, idsFound, out);
 	if (allUpToK)
 	{
-		outputMultiple<K>::doit(p, resultsForall, totals, out.getStream());
+		prepareMultipleKResults<K>(resultsForall, totals);
+		outputMultiple<K>::call(p, resultsForall, totals, out.getStream());
 	}
 	else{
 		output<K>(p, results.get(), total, out.getStream());
