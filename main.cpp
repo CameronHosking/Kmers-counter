@@ -110,6 +110,7 @@ struct Parameters
 			std::cout << "Output is to stdout unless output=<filename>|o=<filename> is set." << std::endl;
 			std::cout << "-split|-s splits k-mer counts between id lines (lines starting with >)." << std::endl;
 			std::cout << "-outputZeros|-z outputs 0 frequencies otherwise that k-mer is skipped in output." << std::endl;
+			std::cout << "-allUpToK|-a If this flag is present all Kmers of length up to and including K are output." << std::endl;
 			std::cout << "See README for more information" << std::endl;
 			k = 0;
 		}
