@@ -23,13 +23,13 @@ zero are output otherwise they are skipped
 If this flag is present then kmer counts between id tags (which are defined as lines starting with '>') 
 are counted separately and output into separate files. Each file is headed by the id tag.
 
-**-input=<filename>** or **-i=<filename>**  
+**-input=\<filename\>** or **-i=\<filename\>**  
 This specifies the input file which must be in fasta format or just a string of characters. If this option is not specified then the sequence will be read from stdin.
 
-**-output=<filename>** or **-o=<filename>**  
+**-output=\<filename\>** or **-o=\<filename\>**  
 This specifies the output file(s). If the split flag is present then the files will be numbered from 1 to the number of id lines present. to select where the number appears in the filename add a %, the first occurrence of which will be replaced by the file number. If this option is not specified output will be to stdout.
 
-**-allUpToK** or **-a**
+**-allUpToK** or **-a**  
 If this flag is present all Kmers of length up to and including K are output. 
 All Kmers of length 1 are output first then 2 etc up to length K. 
 The additional computational cost of this is negligible.
