@@ -13,6 +13,7 @@
 #include "readArgs.h"
 
 #define SIG_FIGS 10
+//#define DO_TIMING
 
 class InputReader
 {
@@ -286,7 +287,9 @@ void prepareMultipleKResults<1>(std::unique_ptr<uint32_t[]> *results, size_t *to
 template <unsigned int K, bool allUpToK>
 void countKmers(InputReader &input,const Parameters &p)
 {
+#ifdef DO_TIMING	
 	auto start = std::chrono::high_resolution_clock::now();
+#endif
 	//allocate memory for the 4^K different kmers
 	uint64_t kmers = 1LL << K * 2;
 	std::unique_ptr<uint32_t[]> results;
@@ -410,10 +413,10 @@ void countKmers(InputReader &input,const Parameters &p)
 			//other characters are ignored eg \n\r etc
 		}
 	}
-	if (p.outputToFile)
-		std::cout << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start).count() << std::endl;
+#ifdef	DO_TIMING
+	std::cout << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start).count() << std::endl;
 	start = std::chrono::high_resolution_clock::now();
-
+#endif
 	OutPutter out;
 	prepareOutputStream(p, id, idsFound, out);
 	if (allUpToK)
@@ -425,8 +428,9 @@ void countKmers(InputReader &input,const Parameters &p)
 		output<K>(p, results.get(), total, out.getStream());
 	}
 	
-	if (p.outputToFile)
-		std::cout << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start).count() << std::endl;
+#ifdef DO_TIMING 
+	std::cout << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start).count() << std::endl; 
+#endif
 }
 
 //this wraps countKmers so that we can compile in the boolean of whether or not to count all up to kmers
