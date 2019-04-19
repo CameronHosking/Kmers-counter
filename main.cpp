@@ -284,6 +284,21 @@ template <>
 void prepareMultipleKResults<1>(std::unique_ptr<uint32_t[]> *results, size_t *totals)
 {}
 
+template <unsigned int K>
+inline void countSmallerKmers(std::unique_ptr<uint32_t[]> resultsForall[K], size_t totals[K], size_t count, uint64_t currentString)
+{
+	currentString >>= 2;
+	size_t i = (count < K - 1) ? count : K - 1;
+	uint64_t kmers = 1LL << i * 2;
+	uint64_t mask = kmers - 1;
+	for (; i > 0; i--)
+	{
+		resultsForall[i - 1][mask&currentString]++;
+		totals[i - 1]++;
+		mask >>= 2;
+	}
+}
+
 template <unsigned int K, bool allUpToK>
 void countKmers(InputReader &input,const Parameters &p)
 {
@@ -349,17 +364,7 @@ void countKmers(InputReader &input,const Parameters &p)
 					//count the shorter kmers
 					if (allUpToK && count > 0)
 					{
-						currentString >>= 2;
-						size_t i = (count < K - 1) ? count : K - 1;
-						uint64_t kmers = 1LL << i * 2;
-						uint64_t mask = kmers - 1;
-						for (; i > 0; i--)
-						{
-							resultsForall[i-1][mask&currentString]++;
-							totals[i-1]++;
-							mask >>= 2;
-						}
-						currentString <<= 2;
+						countSmallerKmers<K>(resultsForall, totals, count, currentString);
 					}
 					count = 0;
 				}
@@ -369,17 +374,7 @@ void countKmers(InputReader &input,const Parameters &p)
 				//count the shorter kmers
 				if (allUpToK && count > 0)
 				{
-					currentString >>= 2;
-					size_t i = (count < K - 1) ? count : K - 1;
-					uint64_t kmers = 1LL << i * 2;
-					uint64_t mask = kmers - 1;
-					for (; i > 0; i--)
-					{
-						resultsForall[i-1][mask&currentString]++;
-						totals[i-1]++;
-						mask >>= 2;
-					}
-					currentString <<= 2;
+					countSmallerKmers<K>(resultsForall, totals, count, currentString);
 				}
 				//if split is true then we ouput individual counts for each id found
 				if (p.split&&(allUpToK?totals[0]:total) > 0)
@@ -413,6 +408,7 @@ void countKmers(InputReader &input,const Parameters &p)
 			//other characters are ignored eg \n\r etc
 		}
 	}
+	countSmallerKmers<K>(resultsForall, totals, count, currentString);
 #ifdef	DO_TIMING
 	std::cout << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start).count() << std::endl;
 	start = std::chrono::high_resolution_clock::now();
