@@ -17,7 +17,7 @@
 #define RYU2_HEADER_ONLY_HPP
 
 #define RYU_HEADER_ONLY
-#include "ryu/d2fixed.c"
+#include "d2fixed.c"
 #undef RYU_HEADER_ONLY
 
 #endif // RYU2_HEADER_ONLY_HPP

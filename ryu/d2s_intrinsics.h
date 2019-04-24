@@ -21,7 +21,7 @@
 #include <stdint.h>
 
 // This sets RYU_32_BIT_PLATFORM as a side effect if applicable.
-#include "ryu/common.h"
+#include "common.h"
 
 RYU_NAMESPACE_BEGIN;
 RYU_NAMESPACE_DETAIL_BEGIN;

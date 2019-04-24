@@ -19,7 +19,7 @@
 
 #include <stdint.h>
 #include <assert.h>
-#include "ryu/config.h"
+#include "config.h"
 
 #define RYU_TABLE_SIZE 64
 

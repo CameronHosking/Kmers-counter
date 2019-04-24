@@ -17,7 +17,7 @@
 #ifndef RYU_DIGIT_TABLE_H
 #define RYU_DIGIT_TABLE_H
 
-#include "ryu/config.h"
+#include "config.h"
 
 RYU_NAMESPACE_BEGIN;
 RYU_NAMESPACE_DETAIL_BEGIN;

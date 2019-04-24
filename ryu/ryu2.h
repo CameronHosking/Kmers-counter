@@ -17,7 +17,7 @@
 #ifndef RYU2_H
 #define RYU2_H
 
-#include "ryu/config.h"
+#include "config.h"
 
 RYU_EXTERN_C_BEGIN;
 
