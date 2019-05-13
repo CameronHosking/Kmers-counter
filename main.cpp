@@ -15,6 +15,97 @@
 #define SIG_FIGS 10
 //#define DO_TIMING
 
+class CompressedString
+{
+	char * compressed;
+	size_t length;
+	size_t arraySize;
+	uint8_t leftover;
+public:
+	CompressedString(size_t reservedSize = 1024)
+		:compressed(nullptr),
+		length(0),
+		arraySize(reservedSize),
+		leftover(0)
+	{
+		compressed = (char*)malloc(reservedSize);
+	}
+	//This string must consist of characters with only the last two bits set in the manner charTo2Bit
+	CompressedString(const std::string &s)
+		:compressed(new char[s.length()/4+1])
+		,length(s.length()/4)
+	{
+		size_t i;
+		for (0; i < length; ++i)
+		{
+			size_t p = i << 2;
+			compressed[i] = s[p] << 6 | s[p + 1] << 4 | s[p + 2] << 2 | s[p + 3];
+		}
+		leftover = s.length() % 4;
+		size_t p = i << 2;
+		if (leftover == 3)
+		{
+			compressed[i] = s[p] << 6 | s[p + 1] << 4 | s[p + 2] << 2;
+		}
+		else if (leftover == 2)
+		{
+			compressed[i] = s[p] << 6 | s[p + 1] << 4;
+		}
+		else if (leftover == 1)
+		{
+			compressed[i] = s[p] << 6;
+		}
+	}
+
+	size_t numberOf2Bits() const
+	{
+		return length * 4 + leftover;
+	}
+
+	void appendFourTwoBitChars(char c)
+	{
+		compressed[length] = c;
+		length++;
+		if (length == arraySize)
+		{
+			compressed = (char*)realloc(compressed, arraySize * 2);
+			arraySize *= 2;
+		}
+	}
+	//this should only be called once to add the last few (<4) 2bit chars
+	//calling this as not the last non const method leads to undefined behaviour
+	void appendLastXTwoBitChars(char c, uint8_t x)
+	{
+		if (x == 0) return;
+		compressed[length] = c<<(8-(2*x));
+		leftover+=x;
+	}
+
+	void getRawString(std::string &s) const
+	{
+		s.resize(length*4 + leftover);
+		for (int i = 0; i < length; ++i)
+		{
+			char c = compressed[i];
+			size_t p = i << 2;
+			s[p] = 3 & (c >> 6);
+			s[p + 1] = 3 & (c >> 4);
+			s[p + 2] = 3 & (c >> 2);
+			s[p + 3] = 3&c;
+		}
+		for (int i = 0; i < leftover; ++i)
+		{
+			s[(length << 2) + i] = 3 & (compressed[length] >> (2*(3 - i)));
+		}
+	}
+
+	std::string getRawString() const
+	{
+		std::string s;
+		getRawString(s);		
+	}
+};
+
 class InputReader
 {
 	std::FILE *fp;
@@ -41,7 +132,6 @@ public:
 			exit(1);
 		}
 	}
-
 	bool read(std::string &s, size_t charsToRead)
 	{
 		s.resize(charsToRead);
@@ -102,13 +192,16 @@ struct Parameters
 	unsigned int k;
 	bool allKs;
 
+	Parameters()
+	{}
+
 	Parameters(int argc, char** argv)
 	{
 		outputZeros = cmdLineArgumentFound(argc, argv, "outputZeros")|cmdLineArgumentFound(argc, argv, "z");
 		split = cmdLineArgumentFound(argc, argv, "split")|cmdLineArgumentFound(argc, argv, "s");
 		allKs = cmdLineArgumentFound(argc, argv, "allUpToK") | cmdLineArgumentFound(argc, argv, "a");
 
-		if (!(getCmdLineArgument(argc, argv, "k", k) || getCmdLineArgument(argc, argv, "K", k)) || k<1 || k>15)
+		if (!(getCmdLineArgument(argc, argv, "k", k) || getCmdLineArgument(argc, argv, "K", k)) || k<1 || k>32)
 		{
 			std::cout << "Usage KmersCounter K=<integer> [options]" << std::endl;
 			std::cout << "The integer provided for K must be between 1 and 15 inclusive." << std::endl;
@@ -161,6 +254,16 @@ void output<0, false>(int index, char * kmer, uint8_t charLocation, const uint32
 		os.write(kmer, charLocation + SIG_FIGS + 7);
 	}
 		
+}
+
+template<unsigned int K>
+void twoBitToString(char * s, uint64_t asInt)
+{
+	for (int i = K - 1; i >= 0; --i)
+	{
+		s[i] = chars[asInt & 3];
+		asInt >>= 2;
+	}
 }
 
 //prepares an outputter
@@ -429,6 +532,201 @@ void countKmers(InputReader &input,const Parameters &p)
 #endif
 }
 
+
+std::vector<CompressedString*> count2mers(InputReader &input, std::unique_ptr<size_t[]> &results)
+{
+	//allocate memory for the 16 different 2mers
+	uint_fast8_t kmers = 16;
+	//creates a bitmask that we can slap on a coded string to grab the last 2 characters
+	uint_fast8_t mask = kmers - 1;
+	results = std::unique_ptr<size_t[]>(new size_t[16]());
+
+	uint_fast8_t currentString = 0;//encodes the current string;
+	size_t count = 0;
+	std::string id;
+	int idsFound = 0;
+	std::string s;
+	CompressedString * twoBitString = new CompressedString();
+	std::vector<CompressedString *> twoBitStrings;
+	size_t i = 0;
+	while (input.read(s, 1000000))
+	{
+		for (i = 0; i < s.length(); i++)
+		{
+			char c = s[i];
+
+			//all alpha characters
+			if (c & 64)
+			{
+				//if the character is any of upper or lowercase ACGT
+				char cLast5bits = c & 31;
+				if (cLast5bits == ('A' & 31) || cLast5bits == ('C' & 31) || cLast5bits == ('G' & 31) || cLast5bits == ('T' & 31))
+				{
+					//convert the character to a 2bit number and add it to the end of the current string
+					currentString = (currentString << 2) | charTo2bit(c);
+					count++;
+					if (count >= 2)
+					{
+						//increment the number of counts for this particular string
+						results[currentString&mask]++;
+
+						if (count % 4 == 0)
+						{
+							twoBitString->appendFourTwoBitChars(currentString);
+						}
+					}
+				}//otherwise it is an unknown so reset the count
+				else
+				{
+					if (count > 0) {
+						twoBitString->appendLastXTwoBitChars(currentString, count % 4);
+						twoBitStrings.push_back(twoBitString);
+						twoBitString = new CompressedString();
+						count = 0;
+					}	
+				}
+			}
+			else if (c == '>')
+			{
+				i = newID(Parameters(), i, id, s, input);
+				idsFound++;
+				if (count > 0) {
+					twoBitString->appendLastXTwoBitChars(currentString, count % 4);
+					twoBitStrings.push_back(twoBitString);
+					twoBitString = new CompressedString();
+					count = 0;
+				}
+			}
+			//other characters are ignored eg \n\r etc
+		}
+	}
+	return twoBitStrings;
+}
+
+template <unsigned int K>
+void countLargeKmers(InputReader &input, const Parameters &p)
+{
+#ifdef DO_TIMING	
+	auto start = std::chrono::high_resolution_clock::now();
+	auto overallStart = std::chrono::high_resolution_clock::now();
+
+#endif
+	std::unique_ptr < size_t[]> twomers;
+	std::vector<CompressedString *> twoBitStrings = count2mers(input,twomers);
+	size_t maxElements = 0;
+	for (int i = 0; i < 16; ++i)
+	{
+		if (twomers[i] > maxElements)
+		{
+			maxElements = twomers[i];
+		}
+	}
+#ifdef	DO_TIMING
+	std::cout << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start).count() << std::endl;
+	start = std::chrono::high_resolution_clock::now();
+#endif
+	std::vector<uint64_t> unsortedKmers;
+	unsortedKmers.resize(maxElements);
+	uint64_t mask;
+	if (K < 32)
+	{
+		mask = (1ULL << K * 2) - 1;
+	}
+	else
+	{
+		mask = 0xFFFFFFFFFFFFFFFF;
+	}
+	uint64_t currentString = 0;//encodes the current string;
+	size_t count = 0;
+	std::string id;
+	int idsFound = 0;
+	std::string s;
+	size_t chunkMask = mask ^ (mask >> 4);
+	size_t globalTotal = 0;
+	for (size_t chunkNumber = 0; chunkNumber < 16; chunkNumber++)
+	{
+		size_t total = 0;
+		size_t chunk = chunkNumber << (2 * (K - 2));
+#ifdef	DO_TIMING
+		size_t timeSpentDecompressing = 0;
+#endif
+		for(CompressedString *compS : twoBitStrings)
+		{
+			if (compS->numberOf2Bits() < K)
+				continue;
+#ifdef	DO_TIMING
+			auto startDecompression = std::chrono::high_resolution_clock::now();
+#endif
+
+			compS->getRawString(s);
+#ifdef	DO_TIMING
+			timeSpentDecompressing += std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - startDecompression).count();
+#endif
+			//load first K-1 characters into currentString
+			size_t i;
+			for (i = 0; i < K - 1; ++i)
+			{
+				currentString = (currentString << 2) | s[i];
+			}
+			if(chunkNumber==0)
+				globalTotal += s.length() - i;
+			for (; i < s.length(); i++)
+			{
+				currentString = (currentString << 2) | s[i];
+				if ((currentString&chunkMask) == chunk)
+				{
+					//add the string to the unsorted list
+					unsortedKmers[total] = currentString&mask;
+					total++;
+				}
+			}
+		}
+#ifdef	DO_TIMING
+		std::cout << "time spent decompressing = " << timeSpentDecompressing << std::endl;
+#endif
+		if (total > 0)
+		{
+			char kmer[K + 1];
+			kmer[K] = '\0'; 
+#ifdef	DO_TIMING
+				std::cout << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start).count() << std::endl;
+			start = std::chrono::high_resolution_clock::now();
+#endif
+			ska_sort(unsortedKmers.begin(), unsortedKmers.begin() + total);
+#ifdef	DO_TIMING
+			std::cout << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start).count() << std::endl;
+			start = std::chrono::high_resolution_clock::now();
+#endif
+			uint64_t currentKmer = unsortedKmers[0];
+			size_t numberOfcurrentKmer = 1;
+			for (int i = 1; i < total; ++i)
+			{
+				uint64_t nextKmer = unsortedKmers[i];
+				if (currentKmer == nextKmer)
+				{
+					numberOfcurrentKmer++;
+				}
+				else
+				{
+					twoBitToString<K>(kmer, currentKmer);
+					std::cout << kmer << '\t' << numberOfcurrentKmer/ (double)globalTotal << std::endl;
+					numberOfcurrentKmer = 1;
+					currentKmer = nextKmer;
+				}
+			}
+			twoBitToString<K>(kmer, currentKmer);
+			std::cout << kmer << '\t' << numberOfcurrentKmer / (double)globalTotal << std::endl;
+		}
+#ifdef	DO_TIMING
+		std::cout << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start).count() << std::endl;
+		start = std::chrono::high_resolution_clock::now();
+#endif
+	}
+#ifdef	DO_TIMING
+	std::cout << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - overallStart).count() << std::endl;
+#endif
+}
+
 //this wraps countKmers so that we can compile in the boolean of whether or not to count all up to kmers
 template <unsigned int K>
 void countMultiKmers(InputReader &input, const Parameters &p)
@@ -452,7 +750,6 @@ int main(int argc, char** argv)
 	{
 		s.open(p.inputFile);
 	}
-	
 	//this allows us to select a K at runtime even though it is a compile time constant
 	switch (p.k)
 	{
@@ -471,6 +768,23 @@ int main(int argc, char** argv)
 	case 13: countMultiKmers<13>(s, p); break;
 	case 14: countMultiKmers<14>(s, p); break;
 	case 15: countMultiKmers<15>(s, p); break;
+	case 16: countLargeKmers<16>(s, p); break;
+	case 17: countLargeKmers<17>(s, p); break;
+	case 18: countLargeKmers<18>(s, p); break;
+	case 19: countLargeKmers<19>(s, p); break; 
+	case 20: countLargeKmers<20>(s, p); break;
+	case 21: countLargeKmers<21>(s, p); break;
+	case 22: countLargeKmers<22>(s, p); break;
+	case 23: countLargeKmers<23>(s, p); break;
+	case 24: countLargeKmers<24>(s, p); break;
+	case 25: countLargeKmers<25>(s, p); break;
+	case 26: countLargeKmers<26>(s, p); break;
+	case 27: countLargeKmers<27>(s, p); break;
+	case 28: countLargeKmers<28>(s, p); break;
+	case 29: countLargeKmers<29>(s, p); break;
+	case 30: countLargeKmers<30>(s, p); break;
+	case 31: countLargeKmers<31>(s, p); break;
+	case 32: countLargeKmers<32>(s, p); break;
 	}
 	return 0;
 }
