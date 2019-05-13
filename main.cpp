@@ -156,18 +156,18 @@ public:
 class OutPutter
 {
 	std::ostream *out;
-	bool readingFile;
+	bool toFile;
 public:
 	OutPutter()
-		:out(&std::cout), readingFile(false)
+		:out(&std::cout), toFile(false)
 	{}
 
 	void open(const std::string &filename)
 	{
-		if (readingFile)
+		if (toFile)
 			delete out;
 		out = new std::ofstream(filename, std::ostream::trunc | std::ostream::binary);
-		readingFile = true;
+		toFile = true;
 	}
 
 	std::ostream &getStream()
@@ -177,7 +177,7 @@ public:
 
 	~OutPutter()
 	{
-		if (readingFile)
+		if (toFile)
 			delete out;
 	}
 };
@@ -334,8 +334,6 @@ public:
 	{
 		output<K>(p, results[K - 1].get(), totals[K - 1], out);
 	}
-
-
 };
 
 //call at the start of an id line
@@ -511,7 +509,6 @@ void countKmers(InputReader &input,const Parameters &p)
 			//other characters are ignored eg \n\r etc
 		}
 	}
-	countSmallerKmers<K>(resultsForall, totals, count, currentString);
 #ifdef	DO_TIMING
 	std::cout << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start).count() << std::endl;
 	start = std::chrono::high_resolution_clock::now();
@@ -520,6 +517,7 @@ void countKmers(InputReader &input,const Parameters &p)
 	prepareOutputStream(p, id, idsFound, out);
 	if (allUpToK)
 	{
+		countSmallerKmers<K>(resultsForall, totals, count, currentString);
 		prepareMultipleKResults<K>(resultsForall, totals);
 		outputMultiple<K>::call(p, resultsForall, totals, out.getStream());
 	}
