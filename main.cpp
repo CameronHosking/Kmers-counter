@@ -13,7 +13,7 @@
 #include "readArgs.h"
 
 #define SIG_FIGS 10
-#define DO_TIMING
+//#define DO_TIMING
 
 class CompressedString
 {
