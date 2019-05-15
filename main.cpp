@@ -13,7 +13,7 @@
 #include "readArgs.h"
 
 #define SIG_FIGS 10
-//#define DO_TIMING
+#define DO_TIMING
 
 class CompressedString
 {
@@ -132,6 +132,7 @@ public:
 			exit(1);
 		}
 	}
+	//reads up to charsToRead characters into s
 	bool read(std::string &s, size_t charsToRead)
 	{
 		s.resize(charsToRead);
@@ -400,6 +401,12 @@ inline void countSmallerKmers(std::unique_ptr<uint32_t[]> resultsForall[K], size
 	}
 }
 
+//0, 1, 2, and 3 are the characters A C G and T respectively 4 is any charcter that breaks the sequence, 5 is the > character which is the start of an ID line, 6 are non printable charcters and newlines and should be ignored.
+constexpr char actions[256] = { 6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,
+								4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,5,4,
+								4,0,4,1,4,4,4,2,4,4,4,4,4,4,4,4,4,4,4,4,3,4,4,4,4,4,4,4,4,4,4,4,
+								4,0,4,1,4,4,4,2,4,4,4,4,4,4,4,4,4,4,4,4,3,4,4,4,4,4,4,4,4,4,5,4 };
+
 template <unsigned int K, bool allUpToK>
 void countKmers(InputReader &input,const Parameters &p)
 {
@@ -439,38 +446,33 @@ void countKmers(InputReader &input,const Parameters &p)
 	{
 		for (i=0; i < s.length(); i++)
 		{
-			char c = s[i];
-
-			//all alpha characters
-			if (c & 64)
+			char c = actions[s[i]];
+			if (c < 4)
 			{
-				//if the character is any of upper or lowercase ACGT
-				char cLast5bits = c & 31;
-				if (cLast5bits == ('A' & 31) || cLast5bits == ('C' & 31) || cLast5bits == ('G' & 31) || cLast5bits == ('T' & 31))
+				currentString += c;
+				count++;
+
+				if (count >= K)
 				{
-					//convert the character to a 2bit number and add it to the end of the current string
-					currentString += charTo2bit(c);
-					count++;
-					
-					if (count >= K)
-					{
-						//increment the number of counts for this particular string
-						(allUpToK ? resultsForall[K - 1] : results)[currentString&mask]++;
-						(allUpToK ? totals[K - 1] : total) += 1;
-					}
-					currentString <<= 2;
-				}//otherwise it is an unknown so reset the count
-				else
-				{
-					//count the shorter kmers
-					if (allUpToK && count > 0)
-					{
-						countSmallerKmers<K>(resultsForall, totals, count, currentString);
-					}
-					count = 0;
+					//increment the number of counts for this particular string
+					(allUpToK ? resultsForall[K - 1] : results)[currentString&mask]++;
+					(allUpToK ? totals[K - 1] : total) += 1;
 				}
+				currentString <<= 2;
 			}
-			else if (c == '>')
+			else if (c == 4)
+			{
+				//count the shorter kmers
+				if (allUpToK && count > 0)
+				{
+					countSmallerKmers<K>(resultsForall, totals, count, currentString);
+				}
+				count = 0;
+				char current = s[i];
+				while (s[++i] == current);
+				--i;
+			}
+			else if(c == 5)
 			{
 				//count the shorter kmers
 				if (allUpToK && count > 0)
@@ -478,7 +480,7 @@ void countKmers(InputReader &input,const Parameters &p)
 					countSmallerKmers<K>(resultsForall, totals, count, currentString);
 				}
 				//if split is true then we ouput individual counts for each id found
-				if (p.split&&(allUpToK?totals[0]:total) > 0)
+				if (p.split && (allUpToK ? totals[0] : total) > 0)
 				{
 					OutPutter out;
 					prepareOutputStream(p, id, idsFound, out);
@@ -500,13 +502,12 @@ void countKmers(InputReader &input,const Parameters &p)
 						memset(results.get(), 0, kmers * sizeof(int));
 						total = 0;
 					}
-				}	
+				}
 
-				i = newID(p,  i, id, s, input);
+				i = newID(p, i, id, s, input);
 				idsFound++;
 				count = 0;
 			}
-			//other characters are ignored eg \n\r etc
 		}
 	}
 #ifdef	DO_TIMING
@@ -551,15 +552,12 @@ std::vector<CompressedString*> count2mers(InputReader &input, std::unique_ptr<si
 	{
 		for (i = 0; i < s.length(); i++)
 		{
-			char c = s[i];
+			char c = actions[s[i]];
 
 			//all alpha characters
-			if (c & 64)
+			if (c < 4)
 			{
-				//if the character is any of upper or lowercase ACGT
-				char cLast5bits = c & 31;
-				if (cLast5bits == ('A' & 31) || cLast5bits == ('C' & 31) || cLast5bits == ('G' & 31) || cLast5bits == ('T' & 31))
-				{
+
 					//convert the character to a 2bit number and add it to the end of the current string
 					currentString = (currentString << 2) | charTo2bit(c);
 					count++;
@@ -573,18 +571,20 @@ std::vector<CompressedString*> count2mers(InputReader &input, std::unique_ptr<si
 							twoBitString->appendFourTwoBitChars(currentString);
 						}
 					}
-				}//otherwise it is an unknown so reset the count
-				else
-				{
-					if (count > 0) {
-						twoBitString->appendLastXTwoBitChars(currentString, count % 4);
-						twoBitStrings.push_back(twoBitString);
-						twoBitString = new CompressedString();
-						count = 0;
-					}	
-				}
+			}//otherwise it is an unknown so reset the count
+			else if(c == 4)
+			{
+				if (count > 0) {
+					twoBitString->appendLastXTwoBitChars(currentString, count % 4);
+					twoBitStrings.push_back(twoBitString);
+					twoBitString = new CompressedString();
+					count = 0;
+				}	
+				char current = s[i];
+				while (s[++i] == current);
+				--i;
 			}
-			else if (c == '>')
+			else if (c == 5)
 			{
 				i = newID(Parameters(), i, id, s, input);
 				idsFound++;
