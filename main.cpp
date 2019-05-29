@@ -35,8 +35,8 @@ public:
 		:compressed(new char[s.length()/4+1])
 		,length(s.length()/4)
 	{
-		size_t i;
-		for (0; i < length; ++i)
+		size_t i = 0;
+		for (; i < length; ++i)
 		{
 			size_t p = i << 2;
 			compressed[i] = s[p] << 6 | s[p + 1] << 4 | s[p + 2] << 2 | s[p + 3];
@@ -84,7 +84,7 @@ public:
 	void getRawString(std::string &s) const
 	{
 		s.resize(length*4 + leftover);
-		for (int i = 0; i < length; ++i)
+		for (size_t i = 0; i < length; ++i)
 		{
 			char c = compressed[i];
 			size_t p = i << 2;
@@ -102,7 +102,8 @@ public:
 	std::string getRawString() const
 	{
 		std::string s;
-		getRawString(s);		
+		getRawString(s);
+		return s;
 	}
 };
 
@@ -318,24 +319,28 @@ void output(const Parameters &p, const uint32_t results[], size_t total, std::os
 //template<unsigned int K, unsigned int S>
 //class outputMultiple
 //
-template<unsigned int K>
+template<unsigned int K, unsigned int S=1>
 class outputMultiple
 {
 public:
 
-	template<unsigned int S=1>
 	static void call(const Parameters &p, const std::unique_ptr<uint32_t[]> results[K], size_t totals[K], std::ostream &out)
 	{
 		output<S>(p, results[S-1].get(), totals[S - 1], out);
-		call<S+1>(p, results, totals, out);
+		outputMultiple<K,S+1>::call(p, results, totals, out);
 	}
+};
 
-	template<>
-	static void call<K>(const Parameters &p, const std::unique_ptr<uint32_t[]> results[K], size_t totals[K], std::ostream &out)
+template<unsigned int K>
+class outputMultiple<K,K>
+{
+public:
+	static void call(const Parameters &p, const std::unique_ptr<uint32_t[]> results[K], size_t totals[K], std::ostream &out)
 	{
 		output<K>(p, results[K - 1].get(), totals[K - 1], out);
 	}
 };
+
 
 //call at the start of an id line
 //set the id to the contents of this line
@@ -383,7 +388,7 @@ void prepareMultipleKResults(std::unique_ptr<uint32_t[]> *results, size_t *total
 	prepareMultipleKResults<K - 1>(results, totals);
 }
 template <>
-void prepareMultipleKResults<1>(std::unique_ptr<uint32_t[]> *results, size_t *totals)
+void prepareMultipleKResults<1>(std::unique_ptr<uint32_t[]> *, size_t *)
 {}
 
 template <unsigned int K>
@@ -424,7 +429,7 @@ void countKmers(InputReader &input,const Parameters &p)
 
 	if (allUpToK)
 	{
-		for (int i = 0; i < K; ++i)
+		for (unsigned int i = 0; i < K; ++i)
 		{
 			uint64_t kmers = 1LL << (i+1) * 2;
 			totals[i] = 0;
@@ -446,7 +451,7 @@ void countKmers(InputReader &input,const Parameters &p)
 	{
 		for (i=0; i < s.length(); i++)
 		{
-			char c = actions[s[i]];
+			char c = actions[(unsigned char)s[i]];
 			if (c < 4)
 			{
 				currentString += c;
@@ -488,7 +493,7 @@ void countKmers(InputReader &input,const Parameters &p)
 					{
 						prepareMultipleKResults<K>(resultsForall, totals);
 						outputMultiple<K>::call(p, resultsForall, totals, out.getStream());
-						for (int Kindex = 0; Kindex < K; ++Kindex)
+						for (unsigned int Kindex = 0; Kindex < K; ++Kindex)
 						{
 							totals[Kindex] = 0;
 							int kmers = (1LL << (Kindex + 1) * 2);
@@ -552,7 +557,7 @@ std::vector<CompressedString*> count2mers(InputReader &input, std::unique_ptr<si
 	{
 		for (i = 0; i < s.length(); i++)
 		{
-			char c = actions[s[i]];
+			char c = actions[(unsigned char)s[i]];
 
 			//all alpha characters
 			if (c < 4)
@@ -602,7 +607,7 @@ std::vector<CompressedString*> count2mers(InputReader &input, std::unique_ptr<si
 }
 
 template <unsigned int K>
-void countLargeKmers(InputReader &input, const Parameters &p)
+void countLargeKmers(InputReader &input)
 {
 #ifdef DO_TIMING	
 	auto start = std::chrono::high_resolution_clock::now();
@@ -626,18 +631,14 @@ void countLargeKmers(InputReader &input, const Parameters &p)
 	std::vector<uint64_t> unsortedKmers;
 	unsortedKmers.resize(maxElements);
 	uint64_t mask;
-	if (K < 32)
-	{
-		mask = (1ULL << K * 2) - 1;
-	}
+	//weird formatting so the if appears in compiler warning
+	if (K < 32) {mask = (1ULL << K * 2) - 1;} //ignore overflow warning, this only runs with K < 32
 	else
 	{
-		mask = 0xFFFFFFFFFFFFFFFF;
+		mask = 0xFFFFFFFFFFFFFFFF;	
 	}
 	uint64_t currentString = 0;//encodes the current string;
-	size_t count = 0;
 	std::string id;
-	int idsFound = 0;
 	std::string s;
 	size_t chunkMask = mask ^ (mask >> 4);
 	size_t globalTotal = 0;
@@ -697,7 +698,7 @@ void countLargeKmers(InputReader &input, const Parameters &p)
 #endif
 			uint64_t currentKmer = unsortedKmers[0];
 			size_t numberOfcurrentKmer = 1;
-			for (int i = 1; i < total; ++i)
+			for (size_t i = 1; i < total; ++i)
 			{
 				uint64_t nextKmer = unsortedKmers[i];
 				if (currentKmer == nextKmer)
@@ -766,23 +767,23 @@ int main(int argc, char** argv)
 	case 13: countMultiKmers<13>(s, p); break;
 	case 14: countMultiKmers<14>(s, p); break;
 	case 15: countMultiKmers<15>(s, p); break;
-	case 16: countLargeKmers<16>(s, p); break;
-	case 17: countLargeKmers<17>(s, p); break;
-	case 18: countLargeKmers<18>(s, p); break;
-	case 19: countLargeKmers<19>(s, p); break; 
-	case 20: countLargeKmers<20>(s, p); break;
-	case 21: countLargeKmers<21>(s, p); break;
-	case 22: countLargeKmers<22>(s, p); break;
-	case 23: countLargeKmers<23>(s, p); break;
-	case 24: countLargeKmers<24>(s, p); break;
-	case 25: countLargeKmers<25>(s, p); break;
-	case 26: countLargeKmers<26>(s, p); break;
-	case 27: countLargeKmers<27>(s, p); break;
-	case 28: countLargeKmers<28>(s, p); break;
-	case 29: countLargeKmers<29>(s, p); break;
-	case 30: countLargeKmers<30>(s, p); break;
-	case 31: countLargeKmers<31>(s, p); break;
-	case 32: countLargeKmers<32>(s, p); break;
+	case 16: countLargeKmers<16>(s); break;
+	case 17: countLargeKmers<17>(s); break;
+	case 18: countLargeKmers<18>(s); break;
+	case 19: countLargeKmers<19>(s); break; 
+	case 20: countLargeKmers<20>(s); break;
+	case 21: countLargeKmers<21>(s); break;
+	case 22: countLargeKmers<22>(s); break;
+	case 23: countLargeKmers<23>(s); break;
+	case 24: countLargeKmers<24>(s); break;
+	case 25: countLargeKmers<25>(s); break;
+	case 26: countLargeKmers<26>(s); break;
+	case 27: countLargeKmers<27>(s); break;
+	case 28: countLargeKmers<28>(s); break;
+	case 29: countLargeKmers<29>(s); break;
+	case 30: countLargeKmers<30>(s); break;
+	case 31: countLargeKmers<31>(s); break;
+	case 32: countLargeKmers<32>(s); break;
 	}
 	return 0;
 }
