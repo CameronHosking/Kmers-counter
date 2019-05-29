@@ -563,19 +563,19 @@ std::vector<CompressedString*> count2mers(InputReader &input, std::unique_ptr<si
 			if (c < 4)
 			{
 
-					//convert the character to a 2bit number and add it to the end of the current string
-					currentString = (currentString << 2) | charTo2bit(c);
-					count++;
-					if (count >= 2)
-					{
-						//increment the number of counts for this particular string
-						results[currentString&mask]++;
+				//convert the character to a 2bit number and add it to the end of the current string
+				currentString = (currentString << 2) | c;
+				count++;
+				if (count >= 2)
+				{
+					//increment the number of counts for this particular string
+					results[currentString&mask]++;
 
-						if (count % 4 == 0)
-						{
-							twoBitString->appendFourTwoBitChars(currentString);
-						}
+					if (count % 4 == 0)
+					{
+						twoBitString->appendFourTwoBitChars(currentString);
 					}
+				}
 			}//otherwise it is an unknown so reset the count
 			else if(c == 4)
 			{
